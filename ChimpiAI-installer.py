@@ -740,7 +740,7 @@ class App(ctk.CTk):
         q = self.quadro()
         ctk.CTkLabel(q, text="ChimpiAI", font=("Fredoka One", 40, "bold")).pack(pady=(80, 10))
         ctk.CTkLabel(q, text="A ChimpiAI ainda não foi instalada.\n\n"
-                             "Abra primeiro o installer_chimpiai.py e depois\n"
+                             "Abra primeiro o ChimpiAI-installer.py e depois\n"
                              "use o atalho criado na área de trabalho.",
                      font=("Segoe UI", 16), justify="center").pack(pady=20)
         ctk.CTkButton(q, text="Fechar", height=44, width=200, command=self.destroy).pack(pady=20)
