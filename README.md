@@ -131,3 +131,7 @@ Depois de instalado, o app fica em `chimpiai.py` na pasta de instalação.
 
 ## Licença
 Licença MIT, conforme o arquivo [LICENSE](LICENSE)
+
+## Aviso de suporte
+
+Aviso traduzido, data de 04/11/2026, versões e limites de distribuição em [SUPPORT.md](SUPPORT.md)
