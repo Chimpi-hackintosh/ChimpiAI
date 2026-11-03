@@ -4,7 +4,7 @@ Assistente de IA para Windows que roda **no seu próprio computador**, com janel
 
 ## Recursos
 
-- Instalador gráfico em um único arquivo (`installer_chimpiai.py`) que cria o app, instala o Ollama e baixa o modelo
+- Instalador gráfico em um único arquivo (`ChimpiAI-installer.py`) que cria o app, instala o Ollama e baixa o modelo
 - Login com **Google** (OAuth com PKCE) e **GitHub** (Device Flow)
 - Chat com resposta aparecendo aos poucos, memória da conversa e botão para limpar
 - Tema escuro, claro ou do sistema
@@ -20,16 +20,16 @@ Assistente de IA para Windows que roda **no seu próprio computador**, com janel
 
 ## Instalação
 
-1. Baixe o `installer_chimpiai.py` (ou clone o repositório):
+1. Baixe o `ChimpiAI-installer.py` (ou clone o repositório):
    ```
    git clone https://github.com/Chimpi-hackintosh/ChimpiAI.git
    cd ChimpiAI
    ```
 2. Rode o instalador:
    ```
-   python installer_chimpiai.py
+   python ChimpiAI-installer.py
    ```
-3. Siga as telas: pasta de instalação, modelo, logins e tema.
+3. Siga as telas: pasta de instalação, modelo e tema. Os logins são feitos pelos botões do aplicativo depois da instalação.
 4. Espere terminar. O instalador:
    - instala o `customtkinter`
    - cria o `chimpiai.py` na pasta escolhida
@@ -44,14 +44,14 @@ Pasta de instalação padrão: `%LOCALAPPDATA%\Programs\ChimpiAI`
 
 ## Configurando os logins
 
-Os logins precisam de um app cadastrado em cada serviço. É grátis. Cada pessoa que for usar o projeto deve criar os seus.
+O aplicativo usa os Client IDs definidos em seu código quando os campos correspondentes do `config.json` estão vazios. Para usar seus próprios apps OAuth, cadastre-os nos serviços e preencha os Client IDs no arquivo de configuração. O instalador atual não tem campos para essas credenciais.
 
 ### Google
 
 1. Em [console.cloud.google.com](https://console.cloud.google.com), crie uma credencial **ID do cliente OAuth** do tipo **App para computador**.
-2. Copie o **Client ID** e o **Client Secret**.
+2. Copie o **Client ID**.
 3. Em **Tela de permissão OAuth**, enquanto o app estiver em modo teste, adicione seu e-mail em **Usuários de teste**.
-4. Cole o Client ID e o Client Secret no instalador (ou no `config.json`).
+4. Preencha `oauth.google.client_id` no `config.json`. A implementação atual usa PKCE e não envia o campo `client_secret`; a disponibilidade do login deve ser validada com o app OAuth cadastrado.
 
 O navegador volta para `http://localhost:8765/`, e o próprio app recebe a resposta. Se o seu cliente for do tipo "Aplicativo da Web", cadastre esse endereço em **URIs de redirecionamento autorizados**.
 
@@ -99,7 +99,7 @@ Modelos pequenos erram e são menos capazes que serviços na nuvem. A ChimpiAI n
 }
 ```
 
-Na tela de login, o botão **Editar configurações dos logins** abre esse arquivo no Bloco de Notas.
+Para alterar os logins, abra `%APPDATA%\ChimpiAI\config.json` em um editor de texto. O aplicativo relê esse arquivo quando você clica em Google ou GitHub; não há um botão de edição de credenciais na interface atual.
 
 ## Problemas comuns
 
@@ -109,7 +109,7 @@ Na tela de login, o botão **Editar configurações dos logins** abre esse arqui
 | "O modelo ... não está baixado" | Rode `ollama pull` com o nome do modelo |
 | Google: `access_denied` | Adicione seu e-mail em **Usuários de teste** na tela de permissão OAuth |
 | Google: `redirect_uri_mismatch` | Cadastre `http://localhost:8765/` nos URIs de redirecionamento |
-| "Google não configurado" | Falta o Client Secret. Preencha no instalador ou no `config.json` |
+| "O login com Google não está configurado neste aplicativo" | Confira `oauth.google.client_id` no `config.json` |
 | GitHub dá erro ao entrar | Confirme que **Enable Device Flow** está marcado no app do GitHub |
 | "A porta 8765 está ocupada" | Feche o outro programa que usa a porta e tente de novo |
 | Muito lento ou travando | Feche outros programas ou troque para um modelo menor |
@@ -123,11 +123,15 @@ Na tela de login, o botão **Editar configurações dos logins** abre esse arqui
 
 ```
 ChimpiAI/
-├── installer_chimpiai.py   # instalador; contém o código do app e cria o chimpiai.py
+├── ChimpiAI-installer.py   # instalador; contém o código do app e cria o chimpiai.py
 └── README.md
 ```
 
 Depois de instalado, o app fica em `chimpiai.py` na pasta de instalação.
 
 ## Licença
-Licença MIT (Sem DMCA Takedown)
+Licença MIT, conforme o arquivo [LICENSE](LICENSE)
+
+## Aviso de suporte
+
+Aviso traduzido, data de 04/11/2026, versões e limites de distribuição em [SUPPORT.md](SUPPORT.md)
