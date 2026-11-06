@@ -2,6 +2,31 @@
 
 Assistente de IA para Windows que roda **no seu próprio computador**, com janela feita em Python (CustomTkinter), login com Google ou GitHub e chat com respostas em tempo real. A inteligência vem do [Ollama](https://ollama.com), então não precisa de chave de API paga nem de internet para conversar.
 
+## Instalação no Windows sem clonar o repositório (nova versão 1.1.0)
+
+**Status:** compilação e manifests preparados, mas o pacote ainda **não foi aprovado** no catálogo WinGet. O comando abaixo só funcionará depois da aprovação pela Microsoft:
+
+```bat
+winget install --id Chimpi-hackintosh.ChimpiAI -e
+```
+
+A versão empacotada também dispensa a instalação manual do Python. Depois que o instalador `.exe` for publicado, será possível baixá-lo em [Releases](https://github.com/Chimpi-hackintosh/ChimpiAI/releases). A versão usa o Ollama para executar os modelos localmente e o modelo precisa ser baixado na primeira configuração:
+
+```bat
+ollama pull gemma3:1b
+```
+
+Quando o manifesto for aprovado, o WinGet também solicitará a instalação do pacote `Ollama.Ollama` como dependência. O download do modelo é separado do instalador do ChimpiAI.
+
+### Gerar o instalador e publicar a release
+
+1. Acesse **Actions → Windows installer and WinGet manifests → Run workflow** neste repositório
+2. Confirme a versão `1.1.0` e a opção **Publicar instalador no GitHub Releases?**
+3. O workflow cria `ChimpiAI-Setup-1.1.0.exe`, arquivo de hash SHA-256 e os manifests WinGet dentro do pacote ZIP
+4. Após o release estar disponível, submeta os manifests gerados como PR ao [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) e espere a validação e aprovação
+
+Veja [o guia de publicação](packaging/README.md) para os detalhes
+
 ## Recursos
 
 - Instalador gráfico em um único arquivo (`ChimpiAI-installer.py`) que cria o app, instala o Ollama e baixa o modelo
@@ -14,11 +39,11 @@ Assistente de IA para Windows que roda **no seu próprio computador**, com janel
 ## Requisitos
 
 - Windows 10 ou 11
-- Python 3 instalado e disponível no CMD (`python --version`)
+- Python 3 disponível no CMD (`python --version`) **apenas para o instalador legado**; a versão `.exe` não exige Python no PC
 - Internet na instalação (para baixar o Ollama e o modelo)
 - Memória: o modelo padrão (`gemma3:4b`) pede cerca de 3 GB livres. Em PCs com pouca memória use `gemma3:1b`
 
-## Instalação
+## Instalação legada (instalador Python)
 
 1. Baixe o `ChimpiAI-installer.py` (ou clone o repositório):
    ```
@@ -131,7 +156,9 @@ Na tela de login, o botão **Editar configurações dos logins** abre esse arqui
 
 ```
 ChimpiAI/
-├── ChimpiAI-installer.py   # instalador; contém o código do app e cria o chimpiai.py
+├── ChimpiAI-installer.py   # instalador legado; inclui o código do app
+├── packaging/             # compilação standalone, instalador Inno Setup e manifests WinGet
+├── .github/workflows/windows-winget.yml
 └── README.md
 ```
 
