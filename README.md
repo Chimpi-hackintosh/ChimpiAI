@@ -4,7 +4,7 @@ Assistente de IA para Windows que roda **no seu próprio computador**, com janel
 
 ## Recursos
 
-- Instalador gráfico em um único arquivo (`installer_chimpiai.py`) que cria o app, instala o Ollama e baixa o modelo
+- Instalador gráfico em um único arquivo (`ChimpiAI-installer.py`) que cria o app, instala o Ollama e baixa o modelo
 - Login com **Google** (OAuth com PKCE) e **GitHub** (Device Flow)
 - Chat com resposta aparecendo aos poucos, memória da conversa e botão para limpar
 - Tema escuro, claro ou do sistema
@@ -20,14 +20,14 @@ Assistente de IA para Windows que roda **no seu próprio computador**, com janel
 
 ## Instalação
 
-1. Baixe o `installer_chimpiai.py` (ou clone o repositório):
+1. Baixe o `ChimpiAI-installer.py` (ou clone o repositório):
    ```
    git clone https://github.com/Chimpi-hackintosh/ChimpiAI.git
    cd ChimpiAI
    ```
 2. Rode o instalador:
    ```
-   python installer_chimpiai.py
+   python ChimpiAI-installer.py
    ```
 3. Siga as telas: pasta de instalação, modelo, logins e tema.
 4. Espere terminar. O instalador:
@@ -116,14 +116,22 @@ Na tela de login, o botão **Editar configurações dos logins** abre esse arqui
 
 ## Segurança
 
-- O login só identifica quem está usando o app. Ele não protege os arquivos do computador.
-- O instalador roda o script oficial `https://ollama.com/install.ps1` do site do Ollama. Leia antes de rodar se preferir.
+- O ChimpiAI usa login com **Google ou GitHub**, não mantém senhas próprias e não oferece cadastro por e-mail, envio de SMS nem recuperação própria.
+- A tela de login possui botões de recuperação **diretamente no Google ou GitHub**. A expiração de links de redefinição é determinada pelo respectivo provedor.
+- **Login**: no máximo **5 tentativas por 15 minutos** (Google e GitHub combinados), neste perfil do Windows.
+- **Chat**: no máximo **20 mensagens por minuto**, com bloqueio adicional de envios simultâneos enquanto a IA responde.
+- As tentativas ficam registradas em `%APPDATA%\ChimpiAI\limites.json` após reiniciar o aplicativo. Erros na leitura ou gravação dos limites bloqueiam a ação.
+- A identidade da conta **não é mais salva** no `config.json`; é preciso entrar novamente a cada abertura. Dados de sessão antigos são removidos na primeira abertura após a atualização.
+- Ao sair ou limpar o chat, respostas antigas que chegarem depois serão ignoradas, para não aparecerem em outra conta ou conversa.
+- **Importante**: os limites são **locais ao perfil Windows**, não à conta global nem a um servidor. Eles não impedem ações feitas em outro dispositivo ou diretamente pelos serviços externos. Caso existam futuramente cadastro próprio, formulários, envio de e-mails/SMS, pedidos, bancos de dados ou planos pagos, será necessário implementar limites e verificações de autorização em um backend seguro. Essas funções não estão presentes nesta versão.
+- O login não protege os arquivos de outras pessoas que usam o mesmo perfil do Windows.
+- O instalador roda o script oficial `https://ollama.com/install.ps1` do site do Ollama. Leia antes de executar se preferir.
 
 ## Estrutura
 
 ```
 ChimpiAI/
-├── installer_chimpiai.py   # instalador; contém o código do app e cria o chimpiai.py
+├── ChimpiAI-installer.py   # instalador; contém o código do app e cria o chimpiai.py
 └── README.md
 ```
 
