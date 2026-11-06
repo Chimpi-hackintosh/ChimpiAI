@@ -456,6 +456,9 @@ MODELO = "gemma3:4b"          # modelo padrão do Ollama (o instalador grava o e
 OLLAMA_URL = "http://localhost:11434"
 MAX_MENSAGENS = 40
 PORTA = 8765
+# Limites locais do aplicativo (não substituem proteções de servidor)
+LIMITES = {"login": (5, 900), "mensagem": (20, 60)}
+TRAVA_LIMITES = threading.Lock()
  
 # ---- Logins (pode preencher aqui ou no instalador / config.json) ----
 GOOGLE_CLIENT_ID = "990145632071-kivq2ea0q1hvekic8g1diu3vdbgevrk9.apps.googleusercontent.com"
@@ -464,6 +467,7 @@ REDIRECT = f"http://localhost:{PORTA}/"
  
 PASTA = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ChimpiAI")
 ARQUIVO_CONFIG = os.path.join(PASTA, "config.json")
+ARQUIVO_LIMITES = os.path.join(PASTA, "limites.json")
  
 PADRAO = {
     "instalado": False,
@@ -502,9 +506,11 @@ def carregar_config():
  
  
 def salvar_config(cfg):
+    dados = dict(cfg)
+    dados["usuario"] = None  # Não persistir nome nem e-mail
     os.makedirs(PASTA, exist_ok=True)
     with open(ARQUIVO_CONFIG, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2, ensure_ascii=False)
+        json.dump(dados, f, indent=2, ensure_ascii=False)
  
  
 def pegar(cfg, caminho):
@@ -519,6 +525,41 @@ def definir(cfg, caminho, valor):
     cfg[caminho[-1]] = valor
  
  
+# ---------------------------------------------------------------- limite local
+def limitar_acao(acao):
+    """0 quando permitido; caso contrário, segundos de espera."""
+    maximo, janela = LIMITES[acao]
+    agora = time.time()
+    with TRAVA_LIMITES:
+        try:
+            with open(ARQUIVO_LIMITES, "r", encoding="utf-8") as f:
+                dados = json.load(f)
+        except FileNotFoundError:
+            dados = {}
+        if not isinstance(dados, dict):
+            raise ValueError("Arquivo de limites inválido")
+        anteriores = dados.get(acao, [])
+        if not isinstance(anteriores, list):
+            raise ValueError("Histórico de limites inválido")
+        recentes = sorted(t for t in anteriores if type(t) in (int, float)
+                          and agora - janela < t <= agora)
+        if len(recentes) >= maximo:
+            return max(1, int(recentes[0] + janela - agora) + 1)
+        dados[acao] = recentes + [agora]
+        os.makedirs(PASTA, exist_ok=True)
+        temporario = ARQUIVO_LIMITES + "." + secrets.token_hex(8) + ".tmp"
+        try:
+            with open(temporario, "x", encoding="utf-8") as f:
+                json.dump(dados, f)
+            os.replace(temporario, ARQUIVO_LIMITES)
+        finally:
+            try:
+                os.remove(temporario)
+            except FileNotFoundError:
+                pass
+        return 0
+
+
 # ---------------------------------------------------------------- rede / login
 def http_json(url, dados=None, headers=None):
     corpo = urllib.parse.urlencode(dados).encode() if dados is not None else None
@@ -692,6 +733,9 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.cfg = carregar_config()
+        if self.cfg.get("usuario") is not None:
+            self.cfg["usuario"] = None
+            salvar_config(self.cfg)  # Limpa logins antigos persistidos
         ctk.set_appearance_mode(self.cfg.get("tema", "dark"))
         ctk.set_default_color_theme("blue")
         self.title(NOME)
@@ -700,14 +744,14 @@ class App(ctk.CTk):
         self.fila = queue.Queue()
         self.historico = []
         self.ocupado = False
+        self.login_em_andamento = False
+        self.chat_id = None
         self.after(50, self.processar_fila)
  
         if not self.cfg["instalado"]:
             self.tela_sem_instalacao()
-        elif not self.cfg["usuario"]:
-            self.tela_login()
         else:
-            self.tela_chat()
+            self.tela_login()  # Exige autenticação a cada abertura
  
     # --- utilidades
     def chamar(self, fn, *args, **kwargs):
@@ -757,35 +801,56 @@ class App(ctk.CTk):
                               command=lambda n=nome, f=fn: self.iniciar_login(n, f))
             b.pack(pady=6)
             self.botoes.append(b)
+        ctk.CTkLabel(q, text="Esqueceu a senha? A recuperação é feita no provedor.",
+                     font=("Segoe UI", 13)).pack(pady=(18, 5))
+        for nome, url in (("Google", "https://accounts.google.com/signin/recovery"),
+                          ("GitHub", "https://github.com/password_reset")):
+            ctk.CTkButton(q, text=f"Recuperar no {nome}", width=270, fg_color="gray40",
+                          command=lambda u=url: webbrowser.open(u)).pack(pady=3)
         self.status = ctk.CTkLabel(q, text="", wraplength=460, font=("Segoe UI", 14))
-        self.status.pack(pady=16)
+        self.status.pack(pady=12)
  
     def iniciar_login(self, nome, funcao):
+        if self.login_em_andamento:
+            return
+        try:
+            espera = limitar_acao("login")
+        except (OSError, ValueError):
+            self.status.configure(text="Falha ao verificar o limite de login.", text_color="#ff6b6b")
+            return
+        if espera:
+            self.status.configure(text=f"Muitas tentativas. Tente novamente em {espera} segundos.",
+                                  text_color="#ffb347")
+            return
         self.cfg = carregar_config()
+        self.cfg["usuario"] = None
+        self.login_em_andamento = True
         for b in self.botoes:
             b.configure(state="disabled")
         self.status.configure(text=f"Abrindo {nome}...", text_color=("black", "white"))
- 
+
         def tarefa():
             try:
                 usuario = funcao(self.cfg, lambda t: self.chamar(self.status.configure, text=t))
                 self.chamar(self.login_ok, usuario)
             except Exception as erro:
                 self.chamar(self.login_erro, str(erro))
- 
+
         threading.Thread(target=tarefa, daemon=True).start()
- 
+
     def login_ok(self, usuario):
+        self.login_em_andamento = False
         self.cfg["usuario"] = usuario
-        salvar_config(self.cfg)
+        self.chat_id = secrets.token_urlsafe(16)
         self.tela_chat()
- 
+
     def login_erro(self, mensagem):
+        self.login_em_andamento = False
         for b in self.botoes:
             b.configure(state="normal")
         self.status.configure(text=mensagem, text_color="#ff6b6b")
- 
-    # --- chat
+
+        # --- chat
     def tela_chat(self):
         self.limpar()
         self.historico = []
