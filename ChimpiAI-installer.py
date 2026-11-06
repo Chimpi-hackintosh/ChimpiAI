@@ -886,20 +886,35 @@ class App(ctk.CTk):
         self.caixa.configure(state="disabled")
  
     def limpar_chat(self):
+        # Respostas antigas deixam de pertencer a esta conversa.
+        self.chat_id = secrets.token_urlsafe(16)
         self.historico = []
+        self.ocupado = False
+        self.botao_enviar.configure(state="normal")
         self.caixa.configure(state="normal")
         self.caixa.delete("1.0", "end")
         self.caixa.configure(state="disabled")
         self.escrever("ChimpiAI: Memória apagada.\n\n")
- 
+
     def sair(self):
+        self.chat_id = None
+        self.historico = []
+        self.ocupado = False
         self.cfg["usuario"] = None
         salvar_config(self.cfg)
         self.tela_login()
- 
+
     def enviar(self, _=None):
         texto = self.entrada.get().strip()
-        if not texto or self.ocupado:
+        if not texto or self.ocupado or self.chat_id is None:
+            return
+        try:
+            espera = limitar_acao("mensagem")
+        except (OSError, ValueError):
+            self.escrever("ChimpiAI: Falha ao verificar o limite de mensagens.\n\n")
+            return
+        if espera:
+            self.escrever(f"ChimpiAI: Limite de mensagens. Tente de novo em {espera} segundos.\n\n")
             return
         self.entrada.delete(0, "end")
         self.escrever(f"Você: {texto}\n\nChimpiAI: ")
@@ -909,40 +924,61 @@ class App(ctk.CTk):
             self.historico.pop(0)
         self.ocupado = True
         self.botao_enviar.configure(state="disabled")
-        threading.Thread(target=self.responder, daemon=True).start()
- 
-    def responder(self):
+        chat_id = self.chat_id
+        modelo = self.cfg.get("modelo") or MODELO
+        nome_usuario = self.cfg["usuario"]["nome"]
+        mensagens = list(self.historico)
+        threading.Thread(target=self.responder, args=(chat_id, modelo, nome_usuario, mensagens),
+                         daemon=True).start()
+
+    def escrever_se_chat(self, chat_id, texto):
+        if chat_id == self.chat_id:
+            self.escrever(texto)
+
+    def resposta_se_chat(self, chat_id, resposta):
+        if chat_id == self.chat_id:
+            self.historico.append({"role": "assistant", "content": resposta})
+
+    def erro_se_chat(self, chat_id, mensagem):
+        if chat_id != self.chat_id:
+            return
+        if self.historico and self.historico[-1]["role"] == "user":
+            self.historico.pop()
+        self.escrever(f"[erro: {mensagem}]\n\n")
+
+    def responder(self, chat_id, modelo, nome_usuario, mensagens):
         try:
-            modelo = self.cfg.get("modelo") or MODELO
             sistema = (
                 f"Você é a {NOME}, uma inteligência artificial assistente criada pelo Chimpi. "
                 "Responda sempre em português do Brasil, de forma direta, clara e amigável, "
                 "a menos que a pessoa escreva em outro idioma. "
                 "Ajude com qualquer assunto: perguntas, estudos, programação, textos, ideias, contas e o que mais vier. "
                 "Se não souber algo, diga que não sabe em vez de inventar. "
-                f"A pessoa se chama {self.cfg['usuario']['nome']}."
+                f"A pessoa se chama {nome_usuario}."
             )
             resposta = ""
-            for pedaco in ollama_stream(modelo, sistema, self.historico):
+            for pedaco in ollama_stream(modelo, sistema, mensagens):
+                if chat_id != self.chat_id:
+                    return
                 resposta += pedaco
-                self.chamar(self.escrever, pedaco)
+                self.chamar(self.escrever_se_chat, chat_id, pedaco)
             if not resposta:
                 raise Exception("O modelo não devolveu resposta. Tente de novo.")
-            self.historico.append({"role": "assistant", "content": resposta})
-            self.chamar(self.escrever, "\n\n")
+            self.chamar(self.resposta_se_chat, chat_id, resposta)
+            self.chamar(self.escrever_se_chat, chat_id, "\n\n")
         except Exception as erro:
-            if self.historico and self.historico[-1]["role"] == "user":
-                self.historico.pop()
-            self.chamar(self.escrever, f"[erro: {erro}]\n\n")
+            self.chamar(self.erro_se_chat, chat_id, str(erro))
         finally:
-            self.chamar(self.liberar)
- 
-    def liberar(self):
+            self.chamar(self.liberar, chat_id)
+
+    def liberar(self, chat_id):
+        if chat_id != self.chat_id:
+            return
         self.ocupado = False
         self.botao_enviar.configure(state="normal")
         self.entrada.focus()
- 
- 
+
+
 if __name__ == "__main__":
     App().mainloop()
 '''
