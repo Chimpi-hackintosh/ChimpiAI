@@ -13,6 +13,10 @@ class SupportNoticeTests(unittest.TestCase):
         self.assertIsNone(support.notice("Unknown-private-app", "0.0.1"))
         self.assertIsNone(support.notice("ChimpiConstrucoes", "1.0.0"))
         self.assertIsNotNone(support.notice("OpenCore-Helper", "3.0.0"))
+        self.assertIsNone(support.notice("ChimpiAI", "1.1.0"))
+        self.assertIsNotNone(support.notice("ChimpiAI", "1.0.0"))
+        self.assertIsNone(support.notice("ChimpiNature", "1.0.0"))
+        self.assertIsNotNone(support.notice("ChimpiNature", "0.9.0"))
 
     def test_cutoff_is_exact_and_has_a_year(self):
         before = dt.datetime(2026, 11, 3, 23, 59, 59, tzinfo=dt.timezone.utc)

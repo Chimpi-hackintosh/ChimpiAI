@@ -1,0 +1,97 @@
+name: Windows installer and WinGet manifests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ChimpiAI-installer.py"
+      - "packaging/**"
+      - ".github/workflows/windows-winget.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão do ChimpiAI (ex.: 1.1.0)"
+        type: string
+        default: "1.1.0"
+        required: true
+      publish_release:
+        description: "Publicar instalador no GitHub Releases?"
+        type: boolean
+        default: true
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python para compilação
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preparar aplicativo (Python não é necessário no PC do usuário)
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller customtkinter
+          python packaging/prepare_app.py
+          pyinstaller --noconfirm --clean --windowed --onedir --name ChimpiAI --paths build --collect-all customtkinter packaging/launcher.py
+          if (-not (Test-Path "dist/ChimpiAI/ChimpiAI.exe")) { throw "Falha ao gerar ChimpiAI.exe" }
+
+      - name: Instalar compilador Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Definir versão
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($version)) { $version = "1.1.0" }
+          if ($version -notmatch '^[0-9]+(\.[0-9]+){2}$') { throw "Formato de versão inválido: $version" }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Gerar instalador .exe
+        shell: pwsh
+        run: |
+          $compiler = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
+          if (-not $compiler) {
+            $compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6/ISCC.exe"
+          }
+          if (-not (Test-Path $compiler)) { throw "ISCC.exe não encontrado" }
+          & $compiler "/DAppVersion=$env:VERSION" "packaging/ChimpiAI.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Falha no Inno Setup: $LASTEXITCODE" }
+
+      - name: Preparar manifesto e hash WinGet
+        shell: pwsh
+        run: |
+          python packaging/generate_winget.py --version "$env:VERSION" --installer "release/ChimpiAI-Setup-$env:VERSION.exe" --output "release/winget"
+          Compress-Archive -Path "release/winget/manifests" -DestinationPath "release/ChimpiAI-winget-manifests-$env:VERSION.zip" -Force
+
+      - name: Guardar artefatos da compilação
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChimpiAI-Windows-${{ env.VERSION }}
+          path: |
+            release/ChimpiAI-Setup-*.exe
+            release/ChimpiAI-Setup-*.exe.sha256
+            release/ChimpiAI-winget-manifests-*.zip
+          if-no-files-found: error
+
+      - name: Publicar release (execução manual)
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: ChimpiAI v${{ env.VERSION }}
+          generate_release_notes: true
+          files: |
+            release/ChimpiAI-Setup-*.exe
+            release/ChimpiAI-Setup-*.exe.sha256
+            release/ChimpiAI-winget-manifests-*.zip
+          fail_on_unmatched_files: true
