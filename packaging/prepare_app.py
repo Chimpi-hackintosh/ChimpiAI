@@ -5,6 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LEGACY = ROOT / "ChimpiAI-installer.py"
 OUT = ROOT / "build" / "chimpiai_app.py"
+SUPPORT = ROOT / "support_notice.py"
+OUT_SUPPORT = ROOT / "build" / "support_notice.py"
 
 
 def main():
@@ -21,7 +23,8 @@ def main():
     compile(code, str(OUT), "exec")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(code, encoding="utf-8")
-    print(f"App extraído para {OUT}")
+    OUT_SUPPORT.write_text(SUPPORT.read_text(encoding="utf-8"), encoding="utf-8")
+    print(f"App extraído para {OUT}; aviso copiado para {OUT_SUPPORT}")
 
 
 if __name__ == "__main__":
