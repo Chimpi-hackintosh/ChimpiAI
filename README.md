@@ -166,3 +166,7 @@ Depois de instalado, o app fica em `chimpiai.py` na pasta de instalação.
 
 ## Licença
 Licença MIT (Sem DMCA Takedown)
+
+## Aviso de suporte
+
+O verificador localizado compara a versão instalada com Releases públicas e usa português, inglês ou inglês como alternativa, conforme [SUPPORT.md](SUPPORT.md)
